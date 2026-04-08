@@ -12,6 +12,11 @@ app.get('/api', (req, res) => {
     res.json({ message: "InterviewAI API is running" });
 });
 
+// Root Route (for testing)
+app.get('/', (req, res) => {
+    res.json({ message: "Backend is online. Use /api/users to test Supabase." });
+});
+
 // Example route to test Supabase connection
 app.get('/api/users', async (req, res) => {
     try {
