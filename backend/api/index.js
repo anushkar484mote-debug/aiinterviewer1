@@ -1,4 +1,3 @@
-const serverless = require('serverless-http');
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
@@ -8,11 +7,21 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Example route to test Supabase connection
-app.get('/', async (req, res) => {
-    const { data, error } = await supabase.from('users').select('*');
-    if (error) return res.status(500).json({ error });
-    res.json(data);
+// Main API Route
+app.get('/api', (req, res) => {
+    res.json({ message: "InterviewAI API is running" });
 });
 
-module.exports.handler = serverless(app);
+// Example route to test Supabase connection
+app.get('/api/users', async (req, res) => {
+    try {
+        const { data, error } = await supabase.from('users').select('*');
+        if (error) throw error;
+        res.json(data);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Export for Vercel
+module.exports = app;
