@@ -1,6 +1,8 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const compression = require('compression');
 const mongoose = require('mongoose');
 
 const authRoutes = require('./routes/auth');
@@ -11,12 +13,16 @@ const aiRoutes = require('./routes/ai');
 
 const app = express();
 
-// ── Middleware ──────────────────────────────────────────────────────────────
+// ── Production Middleware ──────────────────────────────────────────────────
+app.use(helmet({
+  crossOriginResourcePolicy: false, // Allow local development/images
+}));
+app.use(compression());
 app.use(cors({
   origin: process.env.CLIENT_URL || '*',
   credentials: true,
 }));
-app.use(express.json({ limit: '10kb' }));
+app.use(express.json({ limit: '50kb' }));
 
 // ── Routes ──────────────────────────────────────────────────────────────────
 app.use('/api/auth', authRoutes);
@@ -28,16 +34,13 @@ app.use('/api/ai', aiRoutes);
 // ── Health check ─────────────────────────────────────────────────────────────
 app.get('/api/health', (_req, res) => res.json({ status: 'ok', timestamp: new Date() }));
 
-// ── 404 handler ──────────────────────────────────────────────────────────────
-app.use((_req, res) => res.status(404).json({ error: 'Route not found' }));
-
 // ── Global error handler ─────────────────────────────────────────────────────
 app.use((err, _req, res, _next) => {
   console.error('[ERROR]', err.message);
   const status = err.statusCode || 500;
   res.status(status).json({
     error: err.message || 'Internal server error',
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
+    ...(process.env.NODE_ENV !== 'production' && { stack: err.stack }),
   });
 });
 
@@ -48,8 +51,11 @@ const startServer = async () => {
   try {
     let mongoUri = process.env.MONGO_URI;
 
-    // Use in-memory MongoDB for development if local connection is likely to fail
-    if (process.env.NODE_ENV === 'development' && (!mongoUri || mongoUri.includes('localhost'))) {
+    // Use memory server ONLY if specified in dev AND no URI provided
+    const useMemoryServer = process.env.NODE_ENV === 'development' && 
+                           (!mongoUri || mongoUri === 'memory' || mongoUri.includes('localhost:27017'));
+
+    if (useMemoryServer) {
       try {
         console.log('⏳ Starting in-memory MongoDB (v4.4.18)...');
         const { MongoMemoryServer } = require('mongodb-memory-server');
@@ -59,19 +65,23 @@ const startServer = async () => {
         mongoUri = mongoServer.getUri();
         console.log('✅ In-memory MongoDB started');
       } catch (err) {
-        console.warn('⚠️ Failed to start in-memory MongoDB, attempting local connection:', err.message);
+        console.warn('⚠️ Memory Server failed, falling back to local host connection:', err.message);
       }
+    }
+
+    if (!mongoUri) {
+      throw new Error('MONGO_URI is not defined in environment variables.');
     }
 
     await mongoose.connect(mongoUri);
     console.log('✅ MongoDB connected');
 
-    // Run seed script automatically if it's the first run (optional, but good for demo)
+    // Auto-seed if empty
     const User = require('./models/User');
     const userCount = await User.countDocuments();
     if (userCount === 0) {
-      console.log('🌱 No users found, seeding demo data...');
-      const { seed } = require('./utils/seed_helper'); // I'll create this helper
+      console.log('🌱 Seeding demo data...');
+      const { seed } = require('./utils/seed_helper');
       await seed();
     }
 

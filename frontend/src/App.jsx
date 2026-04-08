@@ -1,37 +1,40 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { ToastContainer } from './components/Toast'
 
-// Pages
-import AuthPage                   from './pages/AuthPage'
-import HRJobsPage                 from './pages/HRJobsPage'
-import HRCandidatesPage           from './pages/HRCandidatesPage'
-import HRCandidateDetailPage      from './pages/HRCandidateDetailPage'
-import CandidateDashboardPage     from './pages/CandidateDashboardPage'
-import InterviewInstructionsPage  from './pages/InterviewInstructionsPage'
-import InterviewPage              from './pages/InterviewPage'
-import ForbiddenPage              from './pages/NotFoundPage' // Reusing it
-import StableVoiceApp             from './stable-app/StableVoiceApp'
-import NotFoundPage               from './pages/NotFoundPage'
+// ── Pages (Lazy Loaded) ──────────────────────────────────────────────────────
+const AuthPage                  = lazy(() => import('./pages/AuthPage'))
+const HRJobsPage                = lazy(() => import('./pages/HRJobsPage'))
+const HRCandidatesPage          = lazy(() => import('./pages/HRCandidatesPage'))
+const HRCandidateDetailPage     = lazy(() => import('./pages/HRCandidateDetailPage'))
+const CandidateDashboardPage    = lazy(() => import('./pages/CandidateDashboardPage'))
+const InterviewInstructionsPage = lazy(() => import('./pages/InterviewInstructionsPage'))
+const InterviewPage             = lazy(() => import('./pages/InterviewPage'))
+const NotFoundPage              = lazy(() => import('./pages/NotFoundPage'))
+const StableVoiceApp            = lazy(() => import('./stable-app/StableVoiceApp'))
+
+// Loading fallback components
+const PageLoader = () => (
+  <div className="flex items-center justify-center min-h-screen bg-surface-950">
+    <div className="w-12 h-12 border-4 border-brand-500/20 border-t-brand-500 rounded-full animate-spin"></div>
+  </div>
+)
 
 // ── Route guards ─────────────────────────────────────────────────────────────
 function RequireAuth({ children, role }) {
   const { user, loading } = useAuth()
-
-  if (loading) return null // Wait for rehydration
-
+  if (loading) return <PageLoader />
   if (!user) return <Navigate to="/login" replace />
-
   if (role && user.role !== role) {
     return <Navigate to={user.role === 'hr' ? '/hr/jobs' : '/dashboard'} replace />
   }
-
   return children
 }
 
 function RedirectIfAuthed({ children }) {
   const { user, loading } = useAuth()
-  if (loading) return null
+  if (loading) return <PageLoader />
   if (user) return <Navigate to={user.role === 'hr' ? '/hr/jobs' : '/dashboard'} replace />
   return children
 }
@@ -39,82 +42,82 @@ function RedirectIfAuthed({ children }) {
 // ── Router ────────────────────────────────────────────────────────────────────
 function AppRoutes() {
   return (
-    <Routes>
-      {/* Root redirect */}
-      <Route path="/" element={<Navigate to="/login" replace />} />
+    <Suspense fallback={<PageLoader />}>
+      <Routes>
+        {/* Root redirect */}
+        <Route path="/" element={<Navigate to="/login" replace />} />
 
-      {/* Auth */}
-      <Route
-        path="/login"
-        element={
-          <RedirectIfAuthed>
-            <AuthPage />
-          </RedirectIfAuthed>
-        }
-      />
+        {/* Auth */}
+        <Route
+          path="/login"
+          element={
+            <RedirectIfAuthed>
+              <AuthPage />
+            </RedirectIfAuthed>
+          }
+        />
 
-      {/* ── HR Routes ── */}
-      <Route
-        path="/hr/jobs"
-        element={
-          <RequireAuth role="hr">
-            <HRJobsPage />
-          </RequireAuth>
-        }
-      />
-      <Route
-        path="/hr/candidates"
-        element={
-          <RequireAuth role="hr">
-            <HRCandidatesPage />
-          </RequireAuth>
-        }
-      />
-      <Route
-        path="/hr/candidates/:id"
-        element={
-          <RequireAuth role="hr">
-            <HRCandidateDetailPage />
-          </RequireAuth>
-        }
-      />
+        {/* ── HR Routes ── */}
+        <Route
+          path="/hr/jobs"
+          element={
+            <RequireAuth role="hr">
+              <HRJobsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/hr/candidates"
+          element={
+            <RequireAuth role="hr">
+              <HRCandidatesPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/hr/candidates/:id"
+          element={
+            <RequireAuth role="hr">
+              <HRCandidateDetailPage />
+            </RequireAuth>
+          }
+        />
 
-      {/* ── Candidate Routes ── */}
-      <Route
-        path="/dashboard"
-        element={
-          <RequireAuth role="candidate">
-            <CandidateDashboardPage />
-          </RequireAuth>
-        }
-      />
+        {/* ── Candidate Routes ── */}
+        <Route
+          path="/dashboard"
+          element={
+            <RequireAuth role="candidate">
+              <CandidateDashboardPage />
+            </RequireAuth>
+          }
+        />
 
-      {/* Interview entry via shareable link — accessible even if not logged in yet
-          (will redirect to login first, then back) */}
-      <Route
-        path="/interview/:jobId"
-        element={
-          <RequireAuth role="candidate">
-            <InterviewInstructionsPage />
-          </RequireAuth>
-        }
-      />
-      <Route
-        path="/interview/:jobId/go"
-        element={
-          <RequireAuth role="candidate">
-            <InterviewPage />
-          </RequireAuth>
-        }
-      />
-      <Route
-        path="/stable"
-        element={<StableVoiceApp />}
-      />
+        <Route
+          path="/interview/:jobId"
+          element={
+            <RequireAuth role="candidate">
+              <InterviewInstructionsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/interview/:jobId/go"
+          element={
+            <RequireAuth role="candidate">
+              <InterviewPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/stable"
+          element={<StableVoiceApp />}
+        />
 
-      {/* Catch-all */}
-      <Route path="*" element={<NotFoundPage />} />
-    </Routes>
+        {/* Catch-all */}
+        <Route path="*" element={<NotFoundPage />} />
+      </Routes>
+    </Suspense>
   )
 }
 
@@ -123,7 +126,6 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <AppRoutes />
-        {/* Global toast notifications */}
         <ToastContainer />
       </AuthProvider>
     </BrowserRouter>
