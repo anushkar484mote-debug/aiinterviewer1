@@ -32,9 +32,11 @@ export default function InterviewPage() {
   const [loading, setLoading] = useState(true)
   const [evaluation, setEvaluation] = useState(null)
   
+  const [isStarted, setIsStarted] = useState(false)
+  
   const transcriptRef = useRef(null)
   const timerRef = useRef(null)
-  const speechRef = useRef(null) // To store current speech synthesis utterance
+  const speechRef = useRef(null)
 
   // ── Auto-scroll transcript ───────────────────────────────────────────────
   useEffect(() => {
@@ -45,7 +47,7 @@ export default function InterviewPage() {
 
   // ── Timer ───────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (status !== 'Finished' && status !== 'Initializing...') {
+    if (isStarted && status !== 'Finished' && status !== 'Initializing...') {
       timerRef.current = setInterval(() => {
         setTimer((prev) => prev + 1)
       }, 1000)
@@ -53,7 +55,7 @@ export default function InterviewPage() {
       clearInterval(timerRef.current)
     }
     return () => clearInterval(timerRef.current)
-  }, [status])
+  }, [status, isStarted])
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60)
@@ -69,7 +71,7 @@ export default function InterviewPage() {
     window.speechSynthesis.cancel()
     
     const utterance = new SpeechSynthesisUtterance(text)
-    utterance.rate = 1.1
+    utterance.rate = 1.05
     utterance.pitch = 1.0
     
     utterance.onstart = () => {
@@ -113,15 +115,26 @@ export default function InterviewPage() {
 
     recognition.onend = () => {
       setIsListening(false)
+      // Only auto-restart if we haven't switched status and still need to listen
+      if (status === 'Listening...' && !isSpeaking) {
+         try { recognition.start() } catch(e) {}
+      }
     }
 
-    recognition.start()
-    setIsListening(true)
-    setStatus('Listening...')
-  }, [isMuted])
+    try {
+      recognition.start()
+      setIsListening(true)
+      setStatus('Listening...')
+    } catch (e) {
+      console.warn('Speech recognition already started')
+    }
+  }, [isMuted, isSpeaking, status])
 
   const stopListening = useCallback(() => {
-    if (recognition) recognition.stop()
+    if (recognition) {
+        recognition.onresult = null
+        recognition.stop()
+    }
     setIsListening(false)
   }, [])
 
@@ -138,24 +151,28 @@ export default function InterviewPage() {
       setTranscript([{ role: 'ai', text: introText }])
       
       setLoading(false)
-      
-      // AI speaks intro
-      setTimeout(() => {
-        speak(introText, () => {
-          startListening()
-        })
-      }, 500)
     } catch (err) {
-      toast.error('Failed to start interview: ' + err.message)
+      toast.error('Failed to initialize: ' + err.message)
       navigate('/dashboard')
     }
-  }, [jobId, navigate, speak, startListening])
+  }, [jobId, navigate])
+
+  const handleStartSession = () => {
+    setIsStarted(true)
+    const introText = transcript[0].text
+    speak(introText, () => {
+      startListening()
+    })
+  }
 
   useEffect(() => {
     boot()
     return () => {
       window.speechSynthesis.cancel()
-      if (recognition) recognition.stop()
+      if (recognition) {
+          recognition.onresult = null
+          recognition.stop()
+      }
     }
   }, [boot])
 
@@ -300,6 +317,33 @@ export default function InterviewPage() {
 
   return (
     <div className="min-h-screen bg-[#05070a] text-white flex flex-col font-sans overflow-hidden">
+      <AnimatePresence>
+        {!isStarted && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-[#05070a]/90 backdrop-blur-xl"
+          >
+            <div className="max-w-md w-full p-8 text-center space-y-8">
+              <div className="w-24 h-24 bg-blue-600 rounded-3xl mx-auto flex items-center justify-center shadow-2xl shadow-blue-600/20 rotate-12">
+                <Mic className="w-10 h-10 text-white" />
+              </div>
+              <div>
+                <h2 className="text-3xl font-bold text-white mb-2">Ready to Start?</h2>
+                <p className="text-slate-400">Your AI interviewer for the <b>{job?.title}</b> role is ready. Please ensure your microphone is active and you are in a quiet space.</p>
+              </div>
+              <button 
+                onClick={handleStartSession}
+                className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-bold text-lg transition-all shadow-xl shadow-blue-600/20 active:scale-95"
+              >
+                Start Interview Session
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Header */}
       <div className="px-8 py-6 flex items-center justify-between border-b border-white/5 bg-black/20 backdrop-blur-md">
         <div className="flex items-center gap-4">
