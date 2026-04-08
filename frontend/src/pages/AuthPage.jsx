@@ -13,18 +13,20 @@ export default function AuthPage() {
   const { login, signup } = useAuth()
   const navigate = useNavigate()
 
-  // Memoized change handler to prevent function recreation on every render
-  const handleChange = useCallback((e) => {
+  // Simplified change handler
+  const handleChange = (e) => {
     const { name, value } = e.target
-    setForm((f) => ({ ...f, [name]: value }))
-  }, [])
+    setForm(prev => ({ ...prev, [name]: value }))
+  }
 
   async function handleSubmit(e) {
-    e.preventDefault()
+    if (e) e.preventDefault()
     if (loading) return
     setError('')
 
-    if (mode === 'signup' && !form.name.trim()) {
+    const isLogin = mode === 'login'
+    
+    if (!isLogin && !form.name.trim()) {
       return setError('Full name is required.')
     }
     if (!form.email || !form.password) {
@@ -33,73 +35,65 @@ export default function AuthPage() {
 
     setLoading(true)
     try {
-      const user = mode === 'login'
+      const user = isLogin
         ? await login({ email: form.email, password: form.password })
         : await signup(form)
 
-      toast.success(`Welcome${mode === 'signup' ? ', ' + user.name.split(' ')[0] : ' back'}!`)
-      navigate(user.role === 'hr' ? '/hr/jobs' : '/dashboard', { replace: true })
+      toast.success(`Welcome back!`)
+      // Wait a tiny bit to ensure state is committed
+      setTimeout(() => {
+        navigate(user.role === 'hr' ? '/hr/jobs' : '/dashboard', { replace: true })
+      }, 100)
     } catch (err) {
-      setError(err.message)
+      setError(err.message || 'Authentication failed')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-surface-950 px-4 py-12 overflow-hidden relative">
-      {/* Optimized Background glow */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-        <div 
-          className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-brand-600/5 rounded-full blur-[100px]" 
-          style={{ willChange: 'transform, opacity' }}
-        />
+    <div className="min-h-screen flex items-center justify-center bg-surface-950 px-4 py-12 relative overflow-hidden">
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-brand-600/5 rounded-full blur-[100px]" />
       </div>
 
-      <div className="w-full max-w-md relative z-10 animate-fade-up">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-brand-500 shadow-xl shadow-brand-500/30 mb-4 transition-transform hover:scale-105 active:scale-95 cursor-default">
-            <span className="text-white text-xl font-bold">✦</span>
+      <div className="w-full max-w-md relative z-10">
+        <div className="text-center mb-10">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-brand-500 shadow-2xl shadow-brand-500/20 mb-4">
+            <span className="text-white text-2xl font-bold">✦</span>
           </div>
-          <h1 className="text-2xl font-display font-bold text-surface-50">InterviewAI</h1>
-          <p className="text-sm text-surface-400 mt-1">
-            {mode === 'login' ? 'Sign in to your account' : 'Create your account'}
+          <h1 className="text-3xl font-bold text-white tracking-tight">InterviewAI</h1>
+          <p className="text-surface-400 mt-2">
+            {mode === 'login' ? 'Sign in to continue' : 'Start your journey today'}
           </p>
         </div>
 
-        {/* Card */}
-        <div className="card p-7 shadow-2xl shadow-black/40">
-          {/* Mode toggle */}
-          <div className="flex bg-surface-800 rounded-xl p-1 mb-6 border border-surface-700/50">
-            {['login', 'signup'].map((m) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => { setMode(m); setError('') }}
-                className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
-                  mode === m
-                    ? 'bg-surface-700 text-surface-50 shadow-sm border border-surface-600'
-                    : 'text-surface-400 hover:text-surface-200'
-                }`}
-              >
-                {m === 'login' ? 'Sign in' : 'Sign up'}
-              </button>
-            ))}
+        <div className="card p-8 border border-white/5 shadow-2xl">
+          <div className="flex bg-surface-800 rounded-xl p-1 mb-8">
+            <button
+              onClick={() => { setMode('login'); setError('') }}
+              className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${mode === 'login' ? 'bg-surface-700 text-white shadow-sm' : 'text-surface-400'}`}
+            >
+              Sign In
+            </button>
+            <button
+              onClick={() => { setMode('signup'); setError('') }}
+              className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${mode === 'signup' ? 'bg-surface-700 text-white shadow-sm' : 'text-surface-400'}`}
+            >
+              Sign Up
+            </button>
           </div>
 
-          {/* Error */}
           {error && (
-            <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-300 text-sm mb-5 animate-slide-in">
-              <span className="shrink-0 text-red-400">⚠️</span>
-              {error}
+            <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm mb-6 flex items-center gap-3">
+              <span>⚠️</span> {error}
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
             {mode === 'signup' && (
-              <div className="animate-fade-in">
-                <label className="label">Full name</label>
+              <div>
+                <label className="label">Full Name</label>
                 <input
                   name="name"
                   type="text"
@@ -107,21 +101,21 @@ export default function AuthPage() {
                   placeholder="Arjun Mehta"
                   value={form.name}
                   onChange={handleChange}
-                  autoComplete="name"
+                  required
                 />
               </div>
             )}
 
             <div>
-              <label className="label">Email address</label>
+              <label className="label">Email</label>
               <input
                 name="email"
                 type="email"
                 className="input"
-                placeholder="you@company.com"
+                placeholder="arjun@example.com"
                 value={form.email}
                 onChange={handleChange}
-                autoComplete="email"
+                required
               />
             </div>
 
@@ -134,32 +128,28 @@ export default function AuthPage() {
                 placeholder="••••••••"
                 value={form.password}
                 onChange={handleChange}
-                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                required
               />
             </div>
 
             {mode === 'signup' && (
-              <div className="animate-fade-in">
-                <label className="label">I am a</label>
+              <div className="space-y-3">
+                <label className="label">I am a...</label>
                 <div className="grid grid-cols-2 gap-3">
-                  {[
-                    { val: 'candidate', icon: '👤', label: 'Candidate' },
-                    { val: 'hr',        icon: '🏢', label: 'HR / Recruiter' },
-                  ].map(({ val, icon, label }) => (
-                    <button
-                      key={val}
-                      type="button"
-                      onClick={() => setForm((f) => ({ ...f, role: val }))}
-                      className={`flex items-center gap-2.5 px-4 py-3 rounded-xl border text-sm font-medium transition-all duration-150 ${
-                        form.role === val
-                          ? 'bg-brand-500/15 border-brand-500/40 text-brand-300 ring-2 ring-brand-500/10'
-                          : 'bg-surface-800 border-surface-700 text-surface-400 hover:border-surface-600 hover:text-surface-200'
-                      }`}
-                    >
-                      <span className="text-base">{icon}</span>
-                      {label}
-                    </button>
-                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setForm(f => ({ ...f, role: 'candidate' }))}
+                    className={`p-3 rounded-xl border text-sm font-bold transition-all ${form.role === 'candidate' ? 'bg-brand-500/10 border-brand-500 text-brand-400' : 'bg-surface-800 border-surface-700 text-surface-500'}`}
+                  >
+                    Candidate
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setForm(f => ({ ...f, role: 'hr' }))}
+                    className={`p-3 rounded-xl border text-sm font-bold transition-all ${form.role === 'hr' ? 'bg-brand-500/10 border-brand-500 text-brand-400' : 'bg-surface-800 border-surface-700 text-surface-500'}`}
+                  >
+                    HR / Recruiter
+                  </button>
                 </div>
               </div>
             )}
@@ -167,39 +157,28 @@ export default function AuthPage() {
             <button
               type="submit"
               disabled={loading}
-              className="btn-primary btn w-full mt-2 justify-center py-3.5 text-base font-bold tracking-tight shadow-brand-500/10"
+              className="btn-primary w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2"
             >
-              {loading ? (
-                <><Spinner size="sm" /> {mode === 'login' ? 'Signing in…' : 'Creating account…'}</>
-              ) : (
-                mode === 'login' ? 'Sign in →' : 'Create account →'
-              )}
+              {loading ? <Spinner size="sm" /> : (mode === 'login' ? 'Continue →' : 'Create Account')}
             </button>
           </form>
 
-          {/* Demo accounts */}
-          <div className="mt-8 pt-5 border-t border-white/5">
-            <p className="text-xs text-surface-500 text-center mb-4 uppercase tracking-widest font-bold">Quick Demo</p>
-            <div className="grid grid-cols-2 gap-2.5">
-              {[
-                { label: 'HR Demo',    email: 'hr@demo.com' },
-                { label: 'Candidate',  email: 'candidate@demo.com' },
-              ].map((d) => (
-                <button
-                  key={d.email}
-                  type="button"
-                  onClick={() => {
-                    setMode('login')
-                    setForm({ ...form, email: d.email, password: 'demo123' })
-                  }}
-                  className="flex flex-col items-center px-3 py-3 rounded-xl bg-surface-800/50 border border-surface-700/50 hover:bg-surface-700/50 hover:border-brand-500/20 transition-all hover:-translate-y-0.5 active:translate-y-0 shadow-lg shadow-black/5"
+          <div className="mt-8 pt-6 border-t border-white/5 space-y-4">
+             <p className="text-[10px] text-surface-500 uppercase tracking-widest text-center font-bold">Quick Access</p>
+             <div className="grid grid-cols-2 gap-2">
+                <button 
+                  onClick={() => { setMode('login'); setForm({ ...form, email: 'hr@demo.com', password: 'demo123' }) }}
+                  className="p-3 bg-surface-800/50 rounded-xl border border-surface-700 text-[11px] font-bold text-surface-300"
                 >
-                  <span className="text-[11px] font-bold text-surface-200 mb-0.5">{d.label}</span>
-                  <span className="text-[10px] text-surface-500">{d.email}</span>
+                  HR Demo
                 </button>
-              ))}
-            </div>
-            <p className="text-center text-[10px] text-surface-600 mt-3 font-mono">PWD: demo123</p>
+                <button 
+                  onClick={() => { setMode('login'); setForm({ ...form, email: 'candidate@demo.com', password: 'demo123' }) }}
+                  className="p-3 bg-surface-800/50 rounded-xl border border-surface-700 text-[11px] font-bold text-surface-300"
+                >
+                  Candidate Demo
+                </button>
+             </div>
           </div>
         </div>
       </div>
