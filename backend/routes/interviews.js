@@ -1,5 +1,5 @@
 const express = require('express');
-const router  = express.Router();
+const router = express.Router();
 const { protect, requireRole } = require('../middleware/auth');
 const {
   startInterview,
@@ -14,10 +14,10 @@ const {
 router.use(protect);
 
 // Candidate routes
-router.post('/start',  requireRole('candidate'), startInterview);
+router.post('/start', requireRole('candidate'), startInterview);
 router.post('/answer', requireRole('candidate'), saveAnswer);
 router.post('/submit', requireRole('candidate'), submitInterview);
-router.get('/my',      requireRole('candidate'), getMyInterviews);
+router.get('/my', requireRole('candidate'), getMyInterviews);
 
 // HR routes
 router.get('/job/:jobId', requireRole('hr'), getInterviewsByJob);
