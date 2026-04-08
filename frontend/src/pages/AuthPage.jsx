@@ -1,11 +1,11 @@
-import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useState, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { Spinner } from '../components/Loaders'
 import { toast } from '../hooks/useToast'
 
 export default function AuthPage() {
-  const [mode, setMode]   = useState('login') // 'login' | 'signup'
+  const [mode, setMode]   = useState('login')
   const [form, setForm]   = useState({ name: '', email: '', password: '', role: 'candidate' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -13,12 +13,15 @@ export default function AuthPage() {
   const { login, signup } = useAuth()
   const navigate = useNavigate()
 
-  function update(field) {
-    return (e) => setForm((f) => ({ ...f, [field]: e.target.value }))
-  }
+  // Memoized change handler to prevent function recreation on every render
+  const handleChange = useCallback((e) => {
+    const { name, value } = e.target
+    setForm((f) => ({ ...f, [name]: value }))
+  }, [])
 
   async function handleSubmit(e) {
     e.preventDefault()
+    if (loading) return
     setError('')
 
     if (mode === 'signup' && !form.name.trim()) {
@@ -44,16 +47,19 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-surface-950 px-4 py-12">
-      {/* Background glow */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-brand-600/8 rounded-full blur-[100px]" />
+    <div className="min-h-screen flex items-center justify-center bg-surface-950 px-4 py-12 overflow-hidden relative">
+      {/* Optimized Background glow */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+        <div 
+          className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-brand-600/5 rounded-full blur-[100px]" 
+          style={{ willChange: 'transform, opacity' }}
+        />
       </div>
 
-      <div className="w-full max-w-md relative animate-fade-up">
+      <div className="w-full max-w-md relative z-10 animate-fade-up">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-brand-500 shadow-xl shadow-brand-500/30 mb-4">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-brand-500 shadow-xl shadow-brand-500/30 mb-4 transition-transform hover:scale-105 active:scale-95 cursor-default">
             <span className="text-white text-xl font-bold">✦</span>
           </div>
           <h1 className="text-2xl font-display font-bold text-surface-50">InterviewAI</h1>
@@ -63,16 +69,17 @@ export default function AuthPage() {
         </div>
 
         {/* Card */}
-        <div className="card p-7">
+        <div className="card p-7 shadow-2xl shadow-black/40">
           {/* Mode toggle */}
-          <div className="flex bg-surface-800 rounded-xl p-1 mb-6">
+          <div className="flex bg-surface-800 rounded-xl p-1 mb-6 border border-surface-700/50">
             {['login', 'signup'].map((m) => (
               <button
                 key={m}
+                type="button"
                 onClick={() => { setMode(m); setError('') }}
-                className={`flex-1 py-2 rounded-lg text-sm font-medium font-body transition-all duration-200 ${
+                className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
                   mode === m
-                    ? 'bg-surface-700 text-surface-50 shadow-sm'
+                    ? 'bg-surface-700 text-surface-50 shadow-sm border border-surface-600'
                     : 'text-surface-400 hover:text-surface-200'
                 }`}
               >
@@ -83,25 +90,24 @@ export default function AuthPage() {
 
           {/* Error */}
           {error && (
-            <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-300 text-sm mb-5 animate-fade-in">
-              <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
-              </svg>
+            <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-300 text-sm mb-5 animate-slide-in">
+              <span className="shrink-0 text-red-400">⚠️</span>
               {error}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-5">
             {mode === 'signup' && (
               <div className="animate-fade-in">
                 <label className="label">Full name</label>
                 <input
+                  name="name"
                   type="text"
                   className="input"
                   placeholder="Arjun Mehta"
                   value={form.name}
-                  onChange={update('name')}
-                  autoFocus
+                  onChange={handleChange}
+                  autoComplete="name"
                 />
               </div>
             )}
@@ -109,23 +115,26 @@ export default function AuthPage() {
             <div>
               <label className="label">Email address</label>
               <input
+                name="email"
                 type="email"
                 className="input"
                 placeholder="you@company.com"
                 value={form.email}
-                onChange={update('email')}
-                autoFocus={mode === 'login'}
+                onChange={handleChange}
+                autoComplete="email"
               />
             </div>
 
             <div>
               <label className="label">Password</label>
               <input
+                name="password"
                 type="password"
                 className="input"
                 placeholder="••••••••"
                 value={form.password}
-                onChange={update('password')}
+                onChange={handleChange}
+                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
               />
             </div>
 
@@ -143,7 +152,7 @@ export default function AuthPage() {
                       onClick={() => setForm((f) => ({ ...f, role: val }))}
                       className={`flex items-center gap-2.5 px-4 py-3 rounded-xl border text-sm font-medium transition-all duration-150 ${
                         form.role === val
-                          ? 'bg-brand-500/15 border-brand-500/40 text-brand-300'
+                          ? 'bg-brand-500/15 border-brand-500/40 text-brand-300 ring-2 ring-brand-500/10'
                           : 'bg-surface-800 border-surface-700 text-surface-400 hover:border-surface-600 hover:text-surface-200'
                       }`}
                     >
@@ -158,7 +167,7 @@ export default function AuthPage() {
             <button
               type="submit"
               disabled={loading}
-              className="btn-primary btn w-full mt-2 justify-center py-3"
+              className="btn-primary btn w-full mt-2 justify-center py-3.5 text-base font-bold tracking-tight shadow-brand-500/10"
             >
               {loading ? (
                 <><Spinner size="sm" /> {mode === 'login' ? 'Signing in…' : 'Creating account…'}</>
@@ -169,28 +178,28 @@ export default function AuthPage() {
           </form>
 
           {/* Demo accounts */}
-          <div className="mt-6 pt-5 border-t border-surface-800">
-            <p className="text-xs text-surface-500 text-center mb-3 font-mono">Demo accounts</p>
-            <div className="grid grid-cols-2 gap-2">
+          <div className="mt-8 pt-5 border-t border-white/5">
+            <p className="text-xs text-surface-500 text-center mb-4 uppercase tracking-widest font-bold">Quick Demo</p>
+            <div className="grid grid-cols-2 gap-2.5">
               {[
-                { label: 'HR Demo',    email: 'hr@demo.com',        role: 'HR' },
-                { label: 'Candidate',  email: 'candidate@demo.com', role: 'Candidate' },
+                { label: 'HR Demo',    email: 'hr@demo.com' },
+                { label: 'Candidate',  email: 'candidate@demo.com' },
               ].map((d) => (
                 <button
                   key={d.email}
                   type="button"
                   onClick={() => {
                     setMode('login')
-                    setForm((f) => ({ ...f, email: d.email, password: 'demo123' }))
+                    setForm({ ...form, email: d.email, password: 'demo123' })
                   }}
-                  className="flex flex-col items-center px-3 py-2.5 rounded-xl bg-surface-800 border border-surface-700 hover:border-surface-600 transition-all"
+                  className="flex flex-col items-center px-3 py-3 rounded-xl bg-surface-800/50 border border-surface-700/50 hover:bg-surface-700/50 hover:border-brand-500/20 transition-all hover:-translate-y-0.5 active:translate-y-0 shadow-lg shadow-black/5"
                 >
-                  <span className="text-xs font-medium text-surface-200">{d.label}</span>
-                  <span className="text-[10px] text-surface-500 mt-0.5">{d.email}</span>
+                  <span className="text-[11px] font-bold text-surface-200 mb-0.5">{d.label}</span>
+                  <span className="text-[10px] text-surface-500">{d.email}</span>
                 </button>
               ))}
             </div>
-            <p className="text-center text-[10px] text-surface-600 mt-2">Password: demo123</p>
+            <p className="text-center text-[10px] text-surface-600 mt-3 font-mono">PWD: demo123</p>
           </div>
         </div>
       </div>
